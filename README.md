@@ -16,20 +16,20 @@ This script allowing other TCP load balancers to monitor Galera nodes correctly,
 
 1) Monitors Galera node (default: 1 sec)
 
-2) If healthy (Synced + read_only=OFF), a port redirection will be setup using iptables (default: 3307 redirects to 3306)
+2) If healthy (Synced + read_only=OFF), a port redirection will be setup using iptables (default: 3308 redirects to 3306)
 
 3) Else, the port redirection will be ruled out from the iptables NAT chain
 
-On the load balancer, define the designated redirection port (3307) instead. For example on nginx 1.9 (configured with --with-stream):
+On the load balancer, define the designated redirection port (3308) instead. For example on nginx 1.9 (configured with --with-stream):
 ```bash
 upstream stream_backend {
   zone tcp_servers 64k;
-  server 192.168.0.201:3307;
-  server 192.168.0.202:3307;
-  server 192.168.0.203:3307;
+  server 192.168.0.201:3308;
+  server 192.168.0.202:3308;
+  server 192.168.0.203:3308;
 }
 ```
-If the backend node is not "healthy", 3307 will be unreachable because the corresponding iptables rule is removed on the database node and nginx will exclude it from the load balancing set.
+If the backend node is not "healthy", 3308 will be unreachable because the corresponding iptables rule is removed on the database node and nginx will exclude it from the load balancing set.
 
 # Install
 
@@ -48,7 +48,7 @@ mysql> GRANT PROCESS ON *.* TO 'clustercheckuser'@'localhost' IDENTIFIED BY 'clu
 3) Make sure iptables is running and ensure we setup the firewall rules for Galera services:
 ```bash
 iptables -I INPUT -m tcp -p tcp --dport 3306 -j ACCEPT
-iptables -I INPUT -m tcp -p tcp --dport 3307 -j ACCEPT
+iptables -I INPUT -m tcp -p tcp --dport 3308 -j ACCEPT
 iptables -I INPUT -m tcp -p tcp --dport 4444 -j ACCEPT
 iptables -I INPUT -m tcp -p tcp --dports 4567:4568 -j ACCEPT
 service iptables save
