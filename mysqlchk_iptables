@@ -1,0 +1,125 @@
+#!/bin/bash
+#
+# A background script use to check Galera node availability and add a port redirection using 
+# iptables if Galera node is healthy. Derived from percona-clustercheck, but utilizing iptables 
+# port redirection instead of returning HTTP response. This allows TCP load balancer to perform 
+# health checks without custom monitoring port (percona-clustercheck runs on 9200 through xinetd).
+#
+# Author: Ashraf Sharif <ashraf@severalnines.com>
+#
+# Documentation and download: https://github.com/ashraf-s9s/clustercheck-iptables/
+#
+# Based on the original script from Unai Rodriguez
+#
+
+#### Modify following lines ####
+MIRROR_PORT=3308
+REAL_PORT=3306
+SOURCE_ADDRESS="0.0.0.0/0"
+CHECK_INTERVAL=1
+####
+MYSQL_USERNAME="${1-clustercheck}"
+MYSQL_PASSWORD="${2-clustercheckpassword!}"
+AVAILABLE_WHEN_DONOR=${3:-0}
+ERR_FILE="${4:-/dev/null}"
+LOG_FILE="/var/log/mysqlchk_iptables"
+AVAILABLE_WHEN_READONLY=${5:-0}
+DEFAULTS_EXTRA_FILE=${6:-/etc/my.cnf}
+####
+
+# Timeout exists for instances where mysqld may be hung
+TIMEOUT=10
+
+if [[ $1 == '-h' || $1 == '--help' ]];then
+    echo "Usage: $0 <user> <pass> <available_when_donor=0|1> <log_file> <available_when_readonly=0|1> <defaults_extra_file>"
+    exit
+fi
+
+# if the disabled file is present, delete iptables rule. This allows
+# admins to manually remove a node from a cluster easily.
+if [ -e "/var/tmp/clustercheck.disabled" ]; then
+    iptables_rules delete
+    logging "Galera Cluster Node is manually disabled."
+    sleep 0.1
+fi
+
+logging () {
+    echo "[$(date +"%d-%m-%y %T.%N")] [INFO] $1" >> $LOG_FILE
+}
+
+iptables_rules () {
+    OPT="-A"
+    [ $1 == "delete" ] && OPT="-D"
+    
+    iptables -L -n -t nat | grep -E "^REDIRECT|tcp|dpt:${MIRROR_PORT} redir ports ${REAL_PORT}" &> /dev/null
+
+    if [ $? -eq 0 ]; then
+        if [ "$OPT" == "-D" ]; then
+            iptables -t nat $OPT PREROUTING -s $SOURCE_ADDRESS -p tcp --dport $MIRROR_PORT -j REDIRECT --to-ports $REAL_PORT
+            [ $? -eq 0 ] && logging "iptables rule deleted. $MIRROR_PORT removed." || logging 'Failed to delete iptables rule.'
+        fi
+    else
+        if [ "$OPT" == "-A" ]; then
+            iptables -t nat $OPT PREROUTING -s $SOURCE_ADDRESS -p tcp --dport $MIRROR_PORT -j REDIRECT --to-ports $REAL_PORT
+            [ $? -eq 0 ] && logging "iptables rule added. $MIRROR_PORT is redirected to $REAL_PORT". || logging 'Failed to add iptables rule.'
+        fi
+    fi
+}
+
+main() {
+
+    EXTRA_ARGS=""
+    if [[ -n "$MYSQL_USERNAME" ]]; then
+        EXTRA_ARGS="$EXTRA_ARGS --user=${MYSQL_USERNAME}"
+    fi
+    if [[ -n "$MYSQL_PASSWORD" ]]; then
+        EXTRA_ARGS="$EXTRA_ARGS --password=${MYSQL_PASSWORD}"
+    fi
+    if [[ -r $DEFAULTS_EXTRA_FILE ]];then
+        MYSQL_CMDLINE="mysql --defaults-extra-file=$DEFAULTS_EXTRA_FILE -nNE --connect-timeout=$TIMEOUT \
+                        ${EXTRA_ARGS}"
+    else
+        MYSQL_CMDLINE="mysql -nNE --connect-timeout=$TIMEOUT ${EXTRA_ARGS}"
+    fi
+    #
+    # Perform the query to check the wsrep_local_state
+    #
+    WSREP_STATUS=$($MYSQL_CMDLINE -e "SHOW STATUS LIKE 'wsrep_local_state';" \
+        2>${ERR_FILE} | tail -1 2>>${ERR_FILE})
+
+    if [[ "${WSREP_STATUS}" == "4" ]] || [[ "${WSREP_STATUS}" == "2" && ${AVAILABLE_WHEN_DONOR} == 1 ]]
+    then
+        # Check only when set to 0 to avoid latency in response.
+        if [[ $AVAILABLE_WHEN_READONLY -eq 0 ]];then
+            READ_ONLY=$($MYSQL_CMDLINE -e "SHOW GLOBAL VARIABLES LIKE 'read_only';" \
+                        2>${ERR_FILE} | tail -1 2>>${ERR_FILE})
+
+            if [[ "${READ_ONLY}" == "ON" ]];then
+                # Galera Cluster node local state is 'Synced', but it is in
+                # read-only mode.
+                # => delete iptables rule
+                iptables_rules delete
+                logging "Galera Cluster Node is read-only."
+                sleep 0.1
+        else
+            # Galera Cluster node local state is 'Synced' without read_only = ON
+            # => add iptables rule
+            iptables_rules add
+            logging "Galera Cluster Node is synced."
+            sleep 0.1
+            fi
+        fi
+    else
+        # Galera Cluster node local state is not 'Synced'
+        # => delete iptables rule
+        iptables_rules delete
+        logging "Galera Cluster Node is not synced."
+        sleep 0.1
+    fi
+}
+
+while true
+do
+    main
+    sleep $CHECK_INTERVAL
+done
