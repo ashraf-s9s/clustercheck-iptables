@@ -40,7 +40,6 @@ fi
 if [ -e "/var/tmp/clustercheck.disabled" ]; then
     iptables_rules delete
     logging "Galera Cluster Node is manually disabled."
-    sleep 0.1
 fi
 
 logging () {
@@ -100,13 +99,11 @@ main() {
                 # => delete iptables rule
                 iptables_rules delete
                 logging "Galera Cluster Node is read-only."
-                sleep 0.1
         else
             # Galera Cluster node local state is 'Synced' without read_only = ON
             # => add iptables rule
             iptables_rules add
             logging "Galera Cluster Node is synced."
-            sleep 0.1
             fi
         fi
     else
@@ -114,7 +111,6 @@ main() {
         # => delete iptables rule
         iptables_rules delete
         logging "Galera Cluster Node is not synced."
-        sleep 0.1
     fi
 }
 
