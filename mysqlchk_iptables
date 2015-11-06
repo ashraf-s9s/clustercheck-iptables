@@ -18,7 +18,7 @@ REAL_PORT=3306
 SOURCE_ADDRESS="0.0.0.0/0"
 CHECK_INTERVAL=1
 ####
-MYSQL_USERNAME="${1-clustercheck}"
+MYSQL_USERNAME="${1-clustercheckuser}"
 MYSQL_PASSWORD="${2-clustercheckpassword!}"
 AVAILABLE_WHEN_DONOR=${3:-0}
 ERR_FILE="${4:-/dev/null}"
