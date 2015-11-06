@@ -35,8 +35,8 @@ If the backend node is not "healthy", 3307 will be unreachable because the corre
 
 1) On the Galera node, install the script into /usr/local/bin:
 ```bash
-$ github clone https://github.com/ashraf-s9s/clustercheck-iptables
-$ cp mysqlchk_iptables /usr/local/bin/mysqlchk_iptables
+$ git clone https://github.com/ashraf-s9s/clustercheck-iptables
+$ cp clustercheck-iptables/mysqlchk_iptables /usr/local/bin/
 $ chmod 755 /usr/local/bin/mysqlchk_iptables
 ```
 
