@@ -42,7 +42,7 @@ $ chmod 755 /usr/local/bin/mysqlchk_iptables
 
 2) Configure DB user/password (default as per below):
 ```mysql
-mysql> GRANT PROCESS ON *.* TO 'clustercheckuser'@'localhost' IDENTIFIED BY 'clustercheckpassword!'
+mysql> GRANT PROCESS ON *.* TO 'clustercheckuser'@'localhost' IDENTIFIED BY 'clustercheckpassword!';
 ```
 
 3) Make sure iptables is running and ensure we setup the firewall rules for Galera services:
@@ -50,7 +50,7 @@ mysql> GRANT PROCESS ON *.* TO 'clustercheckuser'@'localhost' IDENTIFIED BY 'clu
 iptables -I INPUT -m tcp -p tcp --dport 3306 -j ACCEPT
 iptables -I INPUT -m tcp -p tcp --dport 3308 -j ACCEPT
 iptables -I INPUT -m tcp -p tcp --dport 4444 -j ACCEPT
-iptables -I INPUT -m tcp -p tcp --dports 4567:4568 -j ACCEPT
+iptables -I INPUT -m tcp -p tcp --dport 4567:4568 -j ACCEPT
 service iptables save
 service iptables restart
 ```
