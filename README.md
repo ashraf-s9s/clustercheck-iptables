@@ -58,9 +58,9 @@ service iptables restart
 
 # Run
 
-Run the script in the background:
+Run the script in the background (omit sudo if you run as root):
 ```bash
-/usr/local/bin/mysqlchk_iptables &
+sudo /usr/local/bin/mysqlchk_iptables &
 ```
 
 To make it starts on boot, add the command into ``/etc/rc.local``:
