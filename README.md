@@ -1,6 +1,6 @@
 # clustercheck-iptables
 
-A background script use to check Galera node availability and add a port redirection using iptables if Galera node is healthy. Derived from percona-clustercheck, but utilizing iptables port redirection instead of returning HTTP response. This allows TCP load balancer to perform health checks without custom monitoring port (percona-clustercheck runs on 9200 through xinetd).
+A background script to check Galera node availability and add a port redirection using iptables if Galera node is healthy. Derived from percona-clustercheck, but utilizing iptables port redirection instead of returning HTTP response. This allows TCP load balancer to perform health checks without custom monitoring port (percona-clustercheck runs on 9200 through xinetd).
 
 This script allowing other TCP load balancers to monitor Galera nodes correctly, namely:
 - nginx 1.9 (--with-stream)
