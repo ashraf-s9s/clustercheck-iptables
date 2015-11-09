@@ -45,6 +45,12 @@ $ chmod 755 /usr/local/bin/mysqlchk_iptables
 mysql> GRANT PROCESS ON *.* TO 'clustercheckuser'@'localhost' IDENTIFIED BY 'clustercheckpassword!';
 ```
 
+** If you don't want to use the default, ensure you change the value in the script under following lines:
+```bash
+MYSQL_USERNAME="${1-clustercheckuser}"
+MYSQL_PASSWORD="${2-clustercheckpassword!}"
+```
+
 3) Make sure iptables is running and ensure we setup the firewall rules for Galera services:
 ```bash
 iptables -I INPUT -m tcp -p tcp --dport 3306 -j ACCEPT
