@@ -18,7 +18,7 @@ This script allowing other TCP load balancers to monitor Galera nodes correctly,
 
 2) If healthy (Synced + read_only=OFF), a port redirection will be setup using iptables (default: 3308 redirects to 3306)
 
-3) Else, the port redirection will be ruled out from the iptables NAT chain
+3) Else, the port redirection will be ruled out from the iptables PREROUTING chain
 
 On the load balancer, define the designated redirection port (3308) instead. For example on nginx 1.9 (configured with --with-stream):
 ```bash
@@ -68,6 +68,12 @@ To make it starts on boot, add the command into ``/etc/rc.local``:
 ```bash
 echo '/usr/local/bin/mysqlchk_iptables &' >> /etc/rc.local
 ```
+
+** Make sure /etc/rc.local has permission to run on boot. Verify with:
+```bash
+chmod +x /etc/rc.local
+```
+
 You can also use [supervisord](http://supervisord.org/) or [monit](https://mmonit.com/monit/) to monitor the process.
 
 # Logging
