@@ -68,7 +68,7 @@ To make it starts on boot, add the command into ``/etc/rc.local``:
 ```bash
 echo '/usr/local/bin/mysqlchk_iptables &' >> /etc/rc.local
 ```
-You can also use [supervisord](http://supervisord.org/) or [monit](https://mmonit.com/monit/) to automate the monitoring of this script.
+You can also use [supervisord](http://supervisord.org/) or [monit](https://mmonit.com/monit/) to monitor the process.
 
 # Logging
 
