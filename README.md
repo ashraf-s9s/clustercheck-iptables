@@ -58,12 +58,29 @@ service iptables restart
 
 # Run
 
-Run the script in the background (omit sudo if you run as root):
+Run the script as root/sudo (since it requires iptables changes) in the background:
 ```bash
 sudo /usr/local/bin/mysqlchk_iptables &
 ```
+** Omit sudo if you run as root
 
 To make it starts on boot, add the command into ``/etc/rc.local``:
 ```bash
 echo '/usr/local/bin/mysqlchk_iptables &' >> /etc/rc.local
 ```
+You can also use [supervisord](http://supervisord.org/) or [monit](https://mmonit.com/monit/) to automate the monitoring of this script.
+
+# Logging
+
+By default, the script will log all activities into ``/var/log/mysqlchk_iptables``. It's recommended to setup a log rotation so it won't fill up your disk space. Create a new file at /etc/logrotate.d/mysqlchk_iptables and add following lines:
+
+```bash
+/var/log/mysqlchk_iptables {
+     size 50M
+     create 0664 root root
+     rotate 3
+     compress
+}
+```
+
+To disable the logging, just replace the ``LOG_FILE="/var/log/mysqlchk_iptables"`` into ``LOG_FILE=/dev/null``.
