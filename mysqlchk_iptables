@@ -20,9 +20,8 @@ CHECK_INTERVAL=1
 ####
 MYSQL_USERNAME="${1-clustercheckuser}"
 MYSQL_PASSWORD="${2-clustercheckpassword!}"
-AVAILABLE_WHEN_DONOR=${3:-0}
-ERR_FILE="${4:-/dev/null}"
-LOG_FILE="/var/log/mysqlchk_iptables"
+ERR_FILE="${3:-/dev/null}"
+LOG_FILE="${4:-/var/log/mysqlchk_iptables}"
 AVAILABLE_WHEN_READONLY=${5:-0}
 DEFAULTS_EXTRA_FILE=${6:-/etc/my.cnf}
 ####
@@ -31,7 +30,7 @@ DEFAULTS_EXTRA_FILE=${6:-/etc/my.cnf}
 TIMEOUT=10
 
 if [[ $1 == '-h' || $1 == '--help' ]];then
-    echo "Usage: $0 <user> <pass> <available_when_donor=0|1> <log_file> <available_when_readonly=0|1> <defaults_extra_file>"
+    echo "Usage: $0 <user> <pass> <err_file> <log_file> <available_when_readonly=0|1> <defaults_extra_file>"
     exit
 fi
 
@@ -86,7 +85,10 @@ main() {
     WSREP_STATUS=$($MYSQL_CMDLINE -e "SHOW STATUS LIKE 'wsrep_local_state';" \
         2>${ERR_FILE} | tail -1 2>>${ERR_FILE})
 
-    if [[ "${WSREP_STATUS}" == "4" ]] || [[ "${WSREP_STATUS}" == "2" && ${AVAILABLE_WHEN_DONOR} == 1 ]]
+    WSREP_SST=$($MYSQL_CMDLINE -e "SHOW VARIABLES LIKE 'wsrep_sst_method';" \
+        2>${ERR_FILE} | tail -1 2>>${ERR_FILE})
+
+    if [[ "${WSREP_STATUS}" == "4" ]] || [[ "${WSREP_STATUS}" == "2" && "${WSREP_SST}" =~ "xtrabackup" ]]
     then
         # Check only when set to 0 to avoid latency in response.
         if [[ $AVAILABLE_WHEN_READONLY -eq 0 ]];then
