@@ -72,7 +72,7 @@ You can also use [supervisord](http://supervisord.org/) or [monit](https://mmoni
 
 # Logging
 
-By default, the script will log all activities into ``/var/log/mysqlchk_iptables``. It's recommended to setup a log rotation so it won't fill up your disk space. Create a new file at /etc/logrotate.d/mysqlchk_iptables and add following lines:
+By default, the script will log all activities into ``/var/log/mysqlchk_iptables``. It's recommended to setup a log rotation so it won't fill up your disk space. Create a new file at ``/etc/logrotate.d/mysqlchk_iptables`` and add following lines:
 
 ```bash
 /var/log/mysqlchk_iptables {
@@ -83,4 +83,8 @@ By default, the script will log all activities into ``/var/log/mysqlchk_iptables
 }
 ```
 
-To disable the logging, just replace the ``LOG_FILE="/var/log/mysqlchk_iptables"`` into ``LOG_FILE=/dev/null``.
+To disable the logging, just replace the following line:
+``LOG_FILE="/var/log/mysqlchk_iptables"`` 
+
+To:
+``LOG_FILE=/dev/null``
