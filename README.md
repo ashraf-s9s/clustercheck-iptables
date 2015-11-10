@@ -118,4 +118,7 @@ By default, the script will log all activities into ``/var/log/mysqlchk_iptables
 }
 ```
 
-To disable logging, just replace the line ``LOG_FILE="/var/log/mysqlchk_iptables"`` with ``LOG_FILE=/dev/null``.
+To disable logging, redirect the output to /dev/null in the command line:
+```bash
+mysqlchk_iptables -d --log-file=/dev/null 
+```
