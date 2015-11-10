@@ -42,7 +42,7 @@ $ chmod 755 /usr/local/bin/mysqlchk_iptables
 
 2) Configure DB user/password (default as per below):
 ```mysql
-mysql> GRANT PROCESS ON *.* TO 'clustercheckuser'@'localhost' IDENTIFIED BY 'clustercheckpassword!';
+mysql> GRANT PROCESS ON *.* TO 'msyqlchk_user'@'localhost' IDENTIFIED BY 'mysqlchk_password';
 ```
 
 ** If you don't want to use the default user/password, ensure you change the values in the script under following lines:
@@ -66,20 +66,36 @@ service iptables restart
 
 # Run
 
-Run the script as root/sudo (since it requires iptables changes) in the background:
-```bash
-sudo /usr/local/bin/mysqlchk_iptables &
-```
-** Omit sudo if you run as root
+The script must run as root/sudoer to allow iptables changes.
 
-If you don't use the default user/password, specify the user/password using first and second argument (don't forget to push the script into background with '&'):
+Once configured, test the script first to ensure it detects Galera node healthiness correctly:
 ```bash
-/usr/local/bin/mysqlchk_iptables <user> <password> &
+mysqlchk_iptables -t
+```
+
+Once satisfied, run the script in the background:
+```bash
+mysqlchk_iptables -d
+```
+
+To stop the script:
+```bash
+mysqlchk_iptables -x
+```
+
+To check the status:
+```bash
+mysqlchk_iptables -s
+```
+
+If you don't use the default user/password, specify the user/password as per below:
+```bash
+mysqlchk_iptables -d --user=check --password=checkpassword
 ```
 
 To make it starts on boot, add the command into ``/etc/rc.local``:
 ```bash
-echo '/usr/local/bin/mysqlchk_iptables &' >> /etc/rc.local
+echo '/usr/local/bin/mysqlchk_iptables -d' >> /etc/rc.local
 ```
 
 ** Make sure /etc/rc.local has permission to run on startup. Verify with:
