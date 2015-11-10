@@ -12,27 +12,75 @@
 # Based on the original script from Unai Rodriguez
 #
 
-#### Modify following lines ####
+## Defaults
 MIRROR_PORT=3308
 REAL_PORT=3306
 SOURCE_ADDRESS="0.0.0.0/0"
 CHECK_INTERVAL=1
-####
-MYSQL_USERNAME="${1-clustercheckuser}"
-MYSQL_PASSWORD="${2-clustercheckpassword!}"
-ERR_FILE="${3:-/dev/null}"
-LOG_FILE="${4:-/var/log/mysqlchk_iptables}"
-AVAILABLE_WHEN_READONLY=${5:-0}
-DEFAULTS_EXTRA_FILE=${6:-/etc/my.cnf}
-####
+MYSQL_USERNAME="root"
+MYSQL_PASSWORD="password"
+AVAILABLE_WHEN_DONOR=0
+LOG_FILE="/var/log/mysqlchk_iptables"
+AVAILABLE_WHEN_READONLY=0
+DEFAULTS_EXTRA_FILE=/etc/my.cnf
+VERBOSE=0
+ERR_FILE="/dev/null"
+PROG_NAME="mysqlchk_iptables"
+
+TEMP=`getopt -o h,v,d,x,s,u:,p:,l:,e:,a:,m:,r:,i:,t,R,D --long help,verbose,daemon,stop,status,user:,password:,log-file:,defaults-extra-file:,source-address:,mirror-port:,real-port:,check-interval:,test,run,debug -n 'mysqlchk_iptables' -- "$@"`
+eval set -- "$TEMP"
+
+while true ; do
+  case "$1" in
+    -h|--help) HELP="1" ; shift ;;
+    -v|--verbose) VERBOSE="1" ; shift ;;
+    -d|--daemon) DAEMON="1" ; shift ;;
+    -x|--stop) STOP="1" ; shift ;;
+    -s|--status) STATUS="1"; shift ;;
+    -u|--user) MYSQL_USERNAME="$2" ; shift 2 ;;
+    -p|--password) MYSQL_PASSWORD="$2" ; shift 2 ;;
+    -l|--log-file) LOG_FILE="$2" ; shift 2 ;;
+    -e|--defaults-extra-file) DEFAULTS_EXTRA_FILE="$2"; shift 2 ;;
+    -a|--source-address) SOURCE_ADDRESS="$2"; shift 2 ;;
+    -m|--mirror-port) MIRROR_PORT="$2"; shift 2 ;;
+    -r|--real-port) REAL_PORT="$2" ; shift 2 ;;
+    -i|--check-interval) CHECK_INTERVAL="$2" ; shift 2 ;;
+    -t|--test) TEST="1"; shift ;;
+    -R|--run) RUN="1"; shift ;;
+    -D|--debug) DEBUG="1"; shift ;;
+    --) shift ; break ;;
+    *) echo "$0: error - unrecognized option -$OPTARG" 1>&2; exit 1;;
+  esac
+done
+
+help ()
+{
+  echo ""
+  echo "Options:"
+  echo "-v, --verbose             : Run this script in foreground. CTRL+C to stop."
+  echo "-d, --daemon              : Run this script as daemon."
+  echo "-x, --stop                : Stop this script if it is running as daemon."
+  echo "-s, --status              : Report the status of this script."
+  echo "-t, --test                : Test the script."
+  echo "-u, --user                : MySQL user to perform health check. (Default: mysqlchk_user)"
+  echo '-p, --password            : Password for the MySQL user (Default: mysqlchk_password)'
+  echo "-l, --log-file            : Log file (Default: /var/log/mysqlchk_iptables)"
+  echo "-e, --defaults-extra-file : This file (if exists) will be passed to the mysql-command with the command line option --defaults-extra-file (Default: /etc/my.cnf)"
+  echo "-a, --source-address      : The source IP address to allow accessing the mirror port by iptables. (Default: 0.0.0.0/0)"
+  echo "-m, --mirror-port         : This port will be created by iptables which redirects to the real port. (Default: 3308)"
+  echo "-r, --real-port           : MySQL port listening on this node. (Default: 3306)"
+  echo "-i, --check-interval      : Health check interval in seconds. (Default: 1)"
+  echo "-h, --help                : Print help"
+  echo ""
+  echo "Details at https://github.com/ashraf-s9s/clustercheck-iptables"
+  echo ""
+  exit 0
+}
 
 # Timeout exists for instances where mysqld may be hung
 TIMEOUT=10
 
-if [[ $1 == '-h' || $1 == '--help' ]];then
-    echo "Usage: $0 <user> <pass> <err_file> <log_file> <available_when_readonly=0|1> <defaults_extra_file>"
-    exit
-fi
+[ "$HELP" == "1" ] && help
 
 # if the disabled file is present, delete iptables rule. This allows
 # admins to manually remove a node from a cluster easily.
@@ -41,31 +89,39 @@ if [ -e "/var/tmp/clustercheck.disabled" ]; then
     logging "Galera Cluster Node is manually disabled."
 fi
 
-logging () {
-    echo "[$(date +"%d-%m-%y %T.%N")] [INFO] $1" >> $LOG_FILE
+logging () 
+{
+    if [[ $DEBUG == "1" ]]; then
+        echo "[$(date +"%d-%m-%y %T.%N")] [INFO] $1"
+    else
+        echo "[$(date +"%d-%m-%y %T.%N")] [INFO] $1" >> $LOG_FILE
+    fi
 }
 
-iptables_rules () {
+iptables_rules () 
+{
     OPT="-A"
     [ $1 == "delete" ] && OPT="-D"
-    
-    iptables -L -n -t nat | grep -E "^REDIRECT|tcp|dpt:${MIRROR_PORT} redir ports ${REAL_PORT}" &> /dev/null
 
-    if [ $? -eq 0 ]; then
-        if [ "$OPT" == "-D" ]; then
-            iptables -t nat $OPT PREROUTING -s $SOURCE_ADDRESS -p tcp --dport $MIRROR_PORT -j REDIRECT --to-ports $REAL_PORT
-            [ $? -eq 0 ] && logging "iptables rule deleted. $MIRROR_PORT removed." || logging 'Failed to delete iptables rule.'
-        fi
-    else
-        if [ "$OPT" == "-A" ]; then
+    result=$(iptables -L -n -t nat | grep -E "^REDIRECT|tcp|dpt:${MIRROR_PORT} redir ports ${REAL_PORT}")
+    
+    if [[ ! -z "$result" &&  "$OPT" == "-D" ]]; then
+        iptables -t nat $OPT PREROUTING -s $SOURCE_ADDRESS -p tcp --dport $MIRROR_PORT -j REDIRECT --to-ports $REAL_PORT
+        [ $? -eq 0 ] && logging "iptables rule deleted. $MIRROR_PORT removed." || logging 'Failed to delete iptables rule.'
+    fi
+    
+    if [[ -z "$result"  &&  "$OPT" == "-A" ]]; then
+        if [[ "$DRYRUN" != "1" ]]; then
             iptables -t nat $OPT PREROUTING -s $SOURCE_ADDRESS -p tcp --dport $MIRROR_PORT -j REDIRECT --to-ports $REAL_PORT
             [ $? -eq 0 ] && logging "iptables rule added. $MIRROR_PORT is redirected to $REAL_PORT". || logging 'Failed to add iptables rule.'
+        else
+            logging "(TEST) iptables rule added. $MIRROR_PORT is redirected to $REAL_PORT".
         fi
     fi
 }
 
-main() {
-
+main() 
+{
     EXTRA_ARGS=""
     if [[ -n "$MYSQL_USERNAME" ]]; then
         EXTRA_ARGS="$EXTRA_ARGS --user=${MYSQL_USERNAME}"
@@ -84,7 +140,6 @@ main() {
     #
     WSREP_STATUS=$($MYSQL_CMDLINE -e "SHOW STATUS LIKE 'wsrep_local_state';" \
         2>${ERR_FILE} | tail -1 2>>${ERR_FILE})
-
     WSREP_SST=$($MYSQL_CMDLINE -e "SHOW VARIABLES LIKE 'wsrep_sst_method';" \
         2>${ERR_FILE} | tail -1 2>>${ERR_FILE})
 
@@ -116,8 +171,81 @@ main() {
     fi
 }
 
-while true
-do
+XTRA_ARGS=""
+if [[ -n "$MYSQL_USERNAME" ]]; then
+    XTRA_ARGS="$XTRA_ARGS --user=${MYSQL_USERNAME}"
+fi
+if [[ -n "$MYSQL_PASSWORD" ]]; then
+    XTRA_ARGS="$XTRA_ARGS --password=${MYSQL_PASSWORD}"
+fi
+REQ_ARGUMENTS="$XTRA_ARGS --mirror-port=$MIRROR_PORT --real-port=$REAL_PORT --log-file=$LOG_FILE --source-address=$SOURCE_ADDRESS --check-interval=$CHECK_INTERVAL --defaults-extra-file=$DEFAULTS_EXTRA_FILE"
+
+ABSOLUTE_PATH=$(cd `dirname "${BASH_SOURCE[0]}"` && pwd)/$PROG_NAME
+PID_PATH=/var/run
+PID_FILE=$PID_PATH/$PROG_NAME
+
+ctrl_c() {
+    iptables_rules delete
+    echo ""
+    echo "$ABSOLUTE_PATH stopped. Bye."
+    exit 1
+}
+
+if [[ $DAEMON == "1" ]]; then
+    [ -e $PID_FILE ] && echo "PID file exists at $PID_FILE. Refusing to fork another process." && exit 1
+    $ABSOLUTE_PATH $REQ_ARGUMENTS -R &
+    PID=$!
+    if [ $? -ne 0 ]; then
+        logging "Unable to run as daemon. Exiting."
+        exit 1
+    else
+        echo $PID > $PID_FILE
+        logging "Script started with PID $PID."
+        logging "Command used to start: $ABSOLUTE_PATH $REQ_ARGUMENTS"
+	echo "$ABSOLUTE_PATH started with PID $PID."
+        exit 0
+    fi
+elif [[ $STOP == "1" ]]; then
+    echo "Stopping $PROG_NAME.."
+    if [ ! -e $PID_FILE ]; then
+        echo "PID file does not exist. Nothing to kill. Exiting."
+        exit 1
+    else
+        EPID=$(cat $PID_FILE)
+        kill $EPID
+        [ $? -ne 0 ] && logging "Unable to kill $EPID. Exiting." && exit 1
+        iptables_rules delete
+        rm -f $PID_FILE
+        logging "PID $EPID killed. $PID_FILE removed. Bye."
+	echo "$ABSOLUTE_PATH stopped. Bye."
+        exit 0
+    fi
+elif [[ $STATUS == "1" ]]; then
+    if [ ! -e $PID_FILE ]; then
+        echo "PID file does not exist. Script is not running."
+        exit 1
+    else
+        EPID=$(cat $PID_FILE)
+        echo "PID file exists. Script is running with PID $EPID."
+        exit 0
+    fi
+elif [[ $VERBOSE == "1" ]]; then
+    [ -e $PID_FILE ] && echo "PID file exists at $PID_FILE. Refusing to fork another process." && exit 1
+    echo "Running in foreground.. CTRL+C to stop"
+    trap ctrl_c INT
+    $ABSOLUTE_PATH $REQ_ARGUMENTS -R -D
+fi
+
+if [[ $RUN == "1" ]]; then
+    while true; do
+        main
+        sleep $CHECK_INTERVAL
+    done
+elif [[ $TEST == "1" ]]; then
+    DEBUG="1"
+    DRYRUN=1
     main
     sleep $CHECK_INTERVAL
-done
+else
+    help
+fi
