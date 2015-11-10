@@ -9,7 +9,7 @@
 #
 # Documentation and download: https://github.com/ashraf-s9s/clustercheck-iptables/
 #
-# Based on the original script from Unai Rodriguez
+# Based on the original script from percona-clustercheck
 #
 
 ## Defaults
@@ -22,7 +22,7 @@ MYSQL_PASSWORD="mysqlchk_password"
 AVAILABLE_WHEN_DONOR=0
 LOG_FILE="/var/log/mysqlchk_iptables"
 AVAILABLE_WHEN_READONLY=0
-DEFAULTS_EXTRA_FILE=/etc/my.cnf
+DEFAULTS_EXTRA_FILE="/etc/my.cnf"
 VERBOSE=0
 ERR_FILE="/dev/null"
 PROG_NAME="mysqlchk_iptables"
@@ -37,8 +37,8 @@ while true ; do
     -d|--daemon) DAEMON="1" ; shift ;;
     -x|--stop) STOP="1" ; shift ;;
     -s|--status) STATUS="1"; shift ;;
-    -u|--user) MYSQL_USERNAME="$2" ; shift 2 ;;
-    -p|--password) MYSQL_PASSWORD="$2" ; shift 2 ;;
+    -u|--user) MYSQL_USERNAME2="$2" ; shift 2 ;;
+    -p|--password) MYSQL_PASSWORD2="$2" ; shift 2 ;;
     -l|--log-file) LOG_FILE="$2" ; shift 2 ;;
     -e|--defaults-extra-file) DEFAULTS_EXTRA_FILE="$2"; shift 2 ;;
     -a|--source-address) SOURCE_ADDRESS="$2"; shift 2 ;;
@@ -143,13 +143,18 @@ main()
     WSREP_SST=$($MYSQL_CMDLINE -e "SHOW VARIABLES LIKE 'wsrep_sst_method';" \
         2>${ERR_FILE} | tail -1 2>>${ERR_FILE})
 
+    if [[ "$DRYRUN" == "1" ]]; then
+      echo "wsrep_local_state: $WSREP_STATUS"
+      echo "wsrep_sst_method: $WSREP_SST"
+    fi
+
     if [[ "${WSREP_STATUS}" == "4" ]] || [[ "${WSREP_STATUS}" == "2" && "${WSREP_SST}" =~ "xtrabackup" ]]
     then
         # Check only when set to 0 to avoid latency in response.
         if [[ $AVAILABLE_WHEN_READONLY -eq 0 ]];then
             READ_ONLY=$($MYSQL_CMDLINE -e "SHOW GLOBAL VARIABLES LIKE 'read_only';" \
                         2>${ERR_FILE} | tail -1 2>>${ERR_FILE})
-
+            [[ "$DRYRUN" == "1" ]] && echo "read_only: $READ_ONLY"
             if [[ "${READ_ONLY}" == "ON" ]];then
                 # Galera Cluster node local state is 'Synced', but it is in
                 # read-only mode.
