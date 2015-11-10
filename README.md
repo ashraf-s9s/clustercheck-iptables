@@ -45,6 +45,14 @@ $ chmod 755 /usr/local/bin/mysqlchk_iptables
 mysql> GRANT PROCESS ON *.* TO 'clustercheckuser'@'localhost' IDENTIFIED BY 'clustercheckpassword!';
 ```
 
+** If you don't want to use the default user/password, ensure you change the values in the script under following lines:
+```bash
+MYSQL_USERNAME="${1-clustercheckuser}"
+MYSQL_PASSWORD="${2-clustercheckpassword!}"
+```
+
+** Or, specify the user/password using first and second argument. Check out the Run section.
+
 3) Make sure iptables is running and ensure we setup the firewall rules for Galera services:
 ```bash
 iptables -I INPUT -m tcp -p tcp --dport 3306 -j ACCEPT
@@ -64,12 +72,17 @@ sudo /usr/local/bin/mysqlchk_iptables &
 ```
 ** Omit sudo if you run as root
 
+If you don't use the default user/password, specify the user/password using first and second argument (don't forget to push the script into background with '&'):
+```bash
+/usr/local/bin/mysqlchk_iptables <user> <password> &
+```
+
 To make it starts on boot, add the command into ``/etc/rc.local``:
 ```bash
 echo '/usr/local/bin/mysqlchk_iptables &' >> /etc/rc.local
 ```
 
-** Make sure /etc/rc.local has permission to run on boot. Verify with:
+** Make sure /etc/rc.local has permission to run on startup. Verify with:
 ```bash
 chmod +x /etc/rc.local
 ```
