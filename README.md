@@ -66,17 +66,17 @@ Once configured, test the script first to ensure it detects Galera node healthin
 mysqlchk_iptables -t
 ```
 
-Once satisfied, run the script in the background:
+Once satisfied, run the script as daemon:
 ```bash
 mysqlchk_iptables -d
 ```
 
-If you use non-default user/password, specify the them as per below (replace -d with -t if you want to test):
+If you use non-default user/password, specify them as per below (replace -d with -t if you just want to test):
 ```bash
 mysqlchk_iptables -d --user=check --password=checkpassword
 ```
 
-To stop the script:
+To stop it:
 ```bash
 mysqlchk_iptables -x
 ```
@@ -109,7 +109,7 @@ $ ps aux | grep mysqlchk_iptables
 root      26768  0.2  0.0 113248  1612 pts/4    S    07:08   0:01 /bin/bash /usr/local/sbin/mysqlchk_iptables --username=mysqlchk_user --password=mysqlchk_password --mirror-port=3308 --real-port=3306 --log-file=/var/log/mysqlchk_iptables --source-address=0.0.0.0/0 --check-interval=1 --defaults-extra-file=/etc/my.cnf -R
 ```
 
-If you don't want the user/password values to be exposed in the command line, specify the user credentials under [client] directive inside MySQL default extra file and specify it as per example below:
+If you don't want the user/password values to be exposed in the command line, specify the user credentials under [client] directive inside MySQL default extra file and use -e to include it:
 ```bash
 mysqlchk_iptables -d -u "" -p "" -e /root/.my.cnf
 ```
