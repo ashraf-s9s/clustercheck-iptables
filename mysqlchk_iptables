@@ -89,7 +89,7 @@ if [ -e "/var/tmp/clustercheck.disabled" ]; then
     logging "Galera Cluster Node is manually disabled."
 fi
 
-logging () 
+logging()
 {
     if [[ $DEBUG == "1" ]]; then
         echo "[$(date +"%d-%m-%y %T.%N")] [INFO] $1"
@@ -98,19 +98,21 @@ logging ()
     fi
 }
 
-iptables_rules () 
+iptables_rules() 
 {
     OPT="-A"
     [ $1 == "delete" ] && OPT="-D"
 
-    result=$(iptables -L -n -t nat | grep -E "^REDIRECT|tcp|dpt:${MIRROR_PORT} redir ports ${REAL_PORT}")
-    
-    if [[ ! -z "$result" &&  "$OPT" == "-D" ]]; then
+    # check if the rule exists
+    iptables -t nat -C PREROUTING -s $SOURCE_ADDRESS -p tcp --dport $MIRROR_PORT -j REDIRECT --to-ports $REAL_PORT &> /dev/null
+    proc=$?
+
+    if [[ $proc == 0 &&  "$OPT" == "-D" ]]; then
         iptables -t nat $OPT PREROUTING -s $SOURCE_ADDRESS -p tcp --dport $MIRROR_PORT -j REDIRECT --to-ports $REAL_PORT
         [ $? -eq 0 ] && logging "iptables rule deleted. $MIRROR_PORT removed." || logging 'Failed to delete iptables rule.'
     fi
     
-    if [[ -z "$result"  &&  "$OPT" == "-A" ]]; then
+    if [[ $proc == 1  &&  "$OPT" == "-A" ]]; then
         if [[ "$DRYRUN" != "1" ]]; then
             iptables -t nat $OPT PREROUTING -s $SOURCE_ADDRESS -p tcp --dport $MIRROR_PORT -j REDIRECT --to-ports $REAL_PORT
             [ $? -eq 0 ] && logging "iptables rule added. $MIRROR_PORT is redirected to $REAL_PORT". || logging 'Failed to add iptables rule.'
