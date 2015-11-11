@@ -109,16 +109,16 @@ $ ps aux | grep mysqlchk_iptables
 root      26768  0.2  0.0 113248  1612 pts/4    S    07:08   0:01 /bin/bash /usr/local/sbin/mysqlchk_iptables --username=mysqlchk_user --password=mysqlchk_password --mirror-port=3308 --real-port=3306 --log-file=/var/log/mysqlchk_iptables --source-address=0.0.0.0/0 --check-interval=1 --defaults-extra-file=/etc/my.cnf -R
 ```
 
-If you don't want the user/password values to be exposed in the command line, specify the user credentials under [client] directive inside MySQL default extra file and use -e to include it:
+If you don't want user/password values to be exposed in the command line, specify the user credentials under [client] directive inside MySQL default extra file. In the command line, specify empty username and password (-u and -p) and use -e to include the extra file:
 ```bash
 mysqlchk_iptables -d -u "" -p "" -e /root/.my.cnf
 ```
 
-The content of ``/root/.my.cnf`` would be:
+The example content of ``/root/.my.cnf``:
 ```bash
 [client]
-user=root
-password="password!@#$"
+user='root'
+password='password!@#$'
 ```
 
 ### Log rotation
