@@ -10,6 +10,8 @@ Other than HAProxy, you can now use your favorite reverse proxy to load balance 
 - balance
 - pen
 
+Watch it in action in [this asciinema recording](https://asciinema.org/a/29799). Example deployment at [Severalnines' blog post](http://severalnines.com/blog/nginx-database-load-balancer-mysql-or-mariadb-galera-cluster).
+
 # How does it work?
 
 0) Requires iptables
