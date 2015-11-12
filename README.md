@@ -10,7 +10,7 @@ Other than HAProxy, you can now use your favorite reverse proxy to load balance 
 - balance
 - pen
 
-# How it works?
+# How does it work?
 
 0) Requires iptables
 
@@ -48,6 +48,8 @@ mysql> GRANT PROCESS ON *.* TO 'mysqlchk_user'@'localhost' IDENTIFIED BY 'mysqlc
 
 3) Make sure iptables is running and ensure we setup the firewall rules for Galera services:
 ```bash
+chkconfig iptables on # or systemctl enable iptables.service
+service iptables start # or systemctl start iptables.service
 iptables -I INPUT -m tcp -p tcp --dport 3306 -j ACCEPT
 iptables -I INPUT -m tcp -p tcp --dport 3308 -j ACCEPT
 iptables -I INPUT -m tcp -p tcp --dport 4444 -j ACCEPT
@@ -55,13 +57,13 @@ iptables -I INPUT -m tcp -p tcp --dport 4567:4568 -j ACCEPT
 service iptables save
 service iptables restart
 ```
-** CentOS 7 comes with firewalld by default. You probably have to install iptables beforehand, use ``yum install iptables-services``
+** CentOS 7 comes with firewalld by default. You probably have to install iptables services beforehand, use ``yum install iptables-services``
 
 # Run
 
-The script must run as root/sudoer to allow iptables changes.
+The script must run as root/sudo to allow iptables changes. Append 'sudo' at the beginning of the command line if you want to run it as non-root user.
 
-Once configured, test the script first to ensure it detects Galera node healthiness correctly:
+Test the script and ensure it detects Galera node healthiness correctly:
 ```bash
 mysqlchk_iptables -t
 ```
@@ -81,7 +83,7 @@ To stop it:
 mysqlchk_iptables -x
 ```
 
-To check the status:
+To check the process status:
 ```bash
 mysqlchk_iptables -s
 ```
@@ -103,13 +105,13 @@ You can also use [supervisord](http://supervisord.org/) or [monit](https://mmoni
 
 ### Credentials exposure
 
-The script defaults to fork another process and expose full parameters containing sensitive information e.g user/password. Example output on the ps command:
+The script defaults to fork a background process which expose full parameters containing sensitive information e.g user/password. Example of the ps output:
 ```bash
 $ ps aux | grep mysqlchk_iptables
 root      26768  0.2  0.0 113248  1612 pts/4    S    07:08   0:01 /bin/bash /usr/local/sbin/mysqlchk_iptables --username=mysqlchk_user --password=mysqlchk_password --mirror-port=3308 --real-port=3306 --log-file=/var/log/mysqlchk_iptables --source-address=0.0.0.0/0 --check-interval=1 --defaults-extra-file=/etc/my.cnf -R
 ```
 
-If you don't want user/password values to be exposed in the command line, specify the user credentials under [client] directive inside MySQL default extra file. In the command line, specify empty username and password (-u and -p) and use -e to include the extra file:
+If you don't want user/password values to be exposed in the command line, specify the user credentials under [client] directive inside MySQL default extra file. In the command line, send empty values for username and password (-u and -p) and use -e to include the extra file:
 ```bash
 mysqlchk_iptables -d -u "" -p "" -e /root/.my.cnf
 ```
@@ -143,7 +145,7 @@ mysqlchk_iptables -d --log-file=/dev/null
 
 This script is built and tested on:
 
-* Percona XtraDB Cluster 5.6, MySQL Galera Cluster 5.6 and MariaDB 10.x, galera 3.x
+* Percona XtraDB Cluster 5.6, MySQL Galera Cluster 5.6 and MariaDB Galera 10.0, galera 3.x
 * CentOS 7.1
 * iptables v1.4.21
 * nginx/1.9.6
