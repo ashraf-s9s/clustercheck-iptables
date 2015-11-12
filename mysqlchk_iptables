@@ -185,14 +185,7 @@ main()
     fi
 }
 
-XTRA_ARGS=""
-if [[ -n "$MYSQL_USERNAME" ]]; then
-    XTRA_ARGS="$XTRA_ARGS --user=${MYSQL_USERNAME}"
-fi
-if [[ -n "$MYSQL_PASSWORD" ]]; then
-    XTRA_ARGS="$XTRA_ARGS --password=${MYSQL_PASSWORD}"
-fi
-REQ_ARGUMENTS="$XTRA_ARGS --mirror-port=$MIRROR_PORT --real-port=$REAL_PORT --log-file=$LOG_FILE --source-address=$SOURCE_ADDRESS --check-interval=$CHECK_INTERVAL --defaults-extra-file=$DEFAULTS_EXTRA_FILE"
+REQ_ARGUMENTS="--user=${MYSQL_USERNAME} --password=${MYSQL_PASSWORD} --mirror-port=$MIRROR_PORT --real-port=$REAL_PORT --log-file=$LOG_FILE --source-address=$SOURCE_ADDRESS --check-interval=$CHECK_INTERVAL --defaults-extra-file=$DEFAULTS_EXTRA_FILE"
 
 ABSOLUTE_PATH=$(cd `dirname "${BASH_SOURCE[0]}"` && pwd)/$PROG_NAME
 PID_PATH=/var/run
