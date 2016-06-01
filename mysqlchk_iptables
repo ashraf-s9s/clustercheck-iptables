@@ -1,8 +1,8 @@
 #!/bin/bash
 #
-# A background script use to check Galera node availability and add a port redirection using 
-# iptables if Galera node is healthy. Derived from percona-clustercheck, but utilizing iptables 
-# port redirection instead of returning HTTP response. This allows TCP load balancer to perform 
+# A background script use to check Galera node availability and add a port redirection using
+# iptables if Galera node is healthy. Derived from percona-clustercheck, but utilizing iptables
+# port redirection instead of returning HTTP response. This allows TCP load balancer to perform
 # health checks without custom monitoring port (percona-clustercheck runs on 9200 through xinetd).
 #
 # Author: Ashraf Sharif <ashraf@severalnines.com>
@@ -16,6 +16,7 @@
 MIRROR_PORT=3308
 REAL_PORT=3306
 SOURCE_ADDRESS="0.0.0.0/0"
+SOURCE_ADDRESS_IPV6="0::0/0"
 CHECK_INTERVAL=1
 MYSQL_USERNAME="mysqlchk_user"
 MYSQL_PASSWORD="mysqlchk_password"
@@ -27,7 +28,7 @@ VERBOSE=0
 ERR_FILE="/dev/null"
 PROG_NAME="mysqlchk_iptables"
 
-TEMP=`getopt -o h,v,d,x,s,u:,p:,l:,e:,a:,m:,r:,i:,t,R,D --long help,verbose,daemon,stop,status,user:,password:,log-file:,defaults-extra-file:,source-address:,mirror-port:,real-port:,check-interval:,test,run,debug -n 'mysqlchk_iptables' -- "$@"`
+TEMP=`getopt -o h,v,d,x,s,u:,p:,l:,e:,a:,a6:,m:,r:,i:,t,R,D --long help,verbose,daemon,stop,status,user:,password:,log-file:,defaults-extra-file:,source-address:,source-address-ipv6:,mirror-port:,real-port:,check-interval:,test,run,debug -n 'mysqlchk_iptables' -- "$@"`
 eval set -- "$TEMP"
 
 while true ; do
@@ -42,6 +43,7 @@ while true ; do
     -l|--log-file) LOG_FILE="$2" ; shift 2 ;;
     -e|--defaults-extra-file) DEFAULTS_EXTRA_FILE="$2"; shift 2 ;;
     -a|--source-address) SOURCE_ADDRESS="$2"; shift 2 ;;
+    -a6|--source-address-ipv6) SOURCE_ADDRESS_IPV6="$2"; shift 2 ;;
     -m|--mirror-port) MIRROR_PORT="$2"; shift 2 ;;
     -r|--real-port) REAL_PORT="$2" ; shift 2 ;;
     -i|--check-interval) CHECK_INTERVAL="$2" ; shift 2 ;;
@@ -57,20 +59,21 @@ help ()
 {
   echo ""
   echo "Options:"
-  echo "-v, --verbose             : Run this script in foreground. CTRL+C to stop."
-  echo "-d, --daemon              : Run this script as daemon."
-  echo "-x, --stop                : Stop this script if it is running as daemon."
-  echo "-s, --status              : Report the status of this script."
-  echo "-t, --test                : Test the script."
-  echo "-u, --user                : MySQL user to perform health check. (Default: mysqlchk_user)"
-  echo '-p, --password            : Password for the MySQL user (Default: mysqlchk_password)'
-  echo "-l, --log-file            : Log file (Default: /var/log/mysqlchk_iptables)"
-  echo "-e, --defaults-extra-file : This file (if exists) will be passed to the mysql-command with the command line option --defaults-extra-file (Default: /etc/my.cnf)"
-  echo "-a, --source-address      : The source IP address to allow accessing the mirror port by iptables. (Default: 0.0.0.0/0)"
-  echo "-m, --mirror-port         : This port will be created by iptables which redirects to the real port. (Default: 3308)"
-  echo "-r, --real-port           : MySQL port listening on this node. (Default: 3306)"
-  echo "-i, --check-interval      : Health check interval in seconds. (Default: 1)"
-  echo "-h, --help                : Print help"
+  echo "-v, --verbose              : Run this script in foreground. CTRL+C to stop."
+  echo "-d, --daemon               : Run this script as daemon."
+  echo "-x, --stop                 : Stop this script if it is running as daemon."
+  echo "-s, --status               : Report the status of this script."
+  echo "-t, --test                 : Test the script."
+  echo "-u, --user                 : MySQL user to perform health check. (Default: mysqlchk_user)"
+  echo '-p, --password             : Password for the MySQL user (Default: mysqlchk_password)'
+  echo "-l, --log-file             : Log file (Default: /var/log/mysqlchk_iptables)"
+  echo "-e, --defaults-extra-file  : This file (if exists) will be passed to the mysql-command with the command line option --defaults-extra-file (Default: /etc/my.cnf)"
+  echo "-a, --source-address       : The source IP address to allow accessing the mirror port by iptables. (Default: 0.0.0.0/0)"
+  echo "-a6, --source-address-ipv6 : The source IPv6 address to allow accessing the mirror port by ip6tables. (Default: 0::0)"
+  echo "-m, --mirror-port          : This port will be created by iptables which redirects to the real port. (Default: 3308)"
+  echo "-r, --real-port            : MySQL port listening on this node. (Default: 3306)"
+  echo "-i, --check-interval       : Health check interval in seconds. (Default: 1)"
+  echo "-h, --help                 : Print help"
   echo ""
   echo "Details at https://github.com/ashraf-s9s/clustercheck-iptables"
   echo ""
@@ -98,7 +101,7 @@ logging()
     fi
 }
 
-iptables_rules() 
+iptables_rules()
 {
     OPT="-A"
     [ $1 == "delete" ] && OPT="-D"
@@ -111,7 +114,7 @@ iptables_rules()
         iptables -t nat $OPT PREROUTING -s $SOURCE_ADDRESS -p tcp --dport $MIRROR_PORT -j REDIRECT --to-ports $REAL_PORT
         [ $? -eq 0 ] && logging "iptables rule deleted. $MIRROR_PORT removed." || logging 'Failed to delete iptables rule.'
     fi
-    
+
     if [[ $proc == 1  &&  "$OPT" == "-A" ]]; then
         if [[ "$DRYRUN" != "1" ]]; then
             iptables -t nat $OPT PREROUTING -s $SOURCE_ADDRESS -p tcp --dport $MIRROR_PORT -j REDIRECT --to-ports $REAL_PORT
@@ -120,9 +123,26 @@ iptables_rules()
             logging "(TEST) iptables rule added. $MIRROR_PORT is redirected to $REAL_PORT".
         fi
     fi
+
+    ip6tables -t nat -C PREROUTING -s $SOURCE_ADDRESS_IPV6 -p tcp --dport $MIRROR_PORT -j REDIRECT --to-ports $REAL_PORT &> /dev/null
+    proc=$?
+
+    if [[ $proc == 0 &&  "$OPT" == "-D" ]]; then
+        ip6tables -t nat $OPT PREROUTING -s $SOURCE_ADDRESS_IPV6 -p tcp --dport $MIRROR_PORT -j REDIRECT --to-ports $REAL_PORT
+        [ $? -eq 0 ] && logging "ip6tables rule deleted. $MIRROR_PORT removed." || logging 'Failed to delete ip6tables rule.'
+    fi
+
+    if [[ $proc == 1  &&  "$OPT" == "-A" ]]; then
+        if [[ "$DRYRUN" != "1" ]]; then
+            ip6tables -t nat $OPT PREROUTING -s $SOURCE_ADDRESS_IPV6 -p tcp --dport $MIRROR_PORT -j REDIRECT --to-ports $REAL_PORT
+            [ $? -eq 0 ] && logging "ip6tables rule added. $MIRROR_PORT is redirected to $REAL_PORT". || logging 'Failed to add ip6tables rule.'
+        else
+            logging "(TEST) ip6tables rule added. $MIRROR_PORT is redirected to $REAL_PORT".
+        fi
+   fi
 }
 
-main() 
+main()
 {
     EXTRA_ARGS=""
     if [[ -n "$MYSQL_USERNAME" ]]; then
@@ -185,7 +205,7 @@ main()
     fi
 }
 
-REQ_ARGUMENTS="--user=${MYSQL_USERNAME} --password=${MYSQL_PASSWORD} --mirror-port=$MIRROR_PORT --real-port=$REAL_PORT --log-file=$LOG_FILE --source-address=$SOURCE_ADDRESS --check-interval=$CHECK_INTERVAL --defaults-extra-file=$DEFAULTS_EXTRA_FILE"
+REQ_ARGUMENTS="--user=${MYSQL_USERNAME} --password=${MYSQL_PASSWORD} --mirror-port=$MIRROR_PORT --real-port=$REAL_PORT --log-file=$LOG_FILE --source-address=$SOURCE_ADDRESS --source-address-ipv6=$SOURCE_ADDRESS_IPV6 --check-interval=$CHECK_INTERVAL --defaults-extra-file=$DEFAULTS_EXTRA_FILE"
 
 ABSOLUTE_PATH=$(cd `dirname "${BASH_SOURCE[0]}"` && pwd)/$PROG_NAME
 PID_PATH=/var/run

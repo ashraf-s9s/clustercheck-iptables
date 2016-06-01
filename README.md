@@ -1,6 +1,6 @@
 # clustercheck-iptables
 
-A background script that checks the availability of a Galera node, and adds a redirection port using iptables if the Galera node is healthy (instead of returning HTTP response). This allows other TCP-load balancers with limited health check capabilities to monitor the backend Galera nodes correctly. 
+A background script that checks the availability of a Galera node, and adds a redirection port using iptables if the Galera node is healthy (instead of returning HTTP response). This allows other TCP-load balancers with limited health check capabilities to monitor the backend Galera nodes correctly.
 
 Other than HAProxy, you can now use your favorite reverse proxy to load balance requests across Galera nodes, namely:
 - nginx 1.9 (--with-stream)
@@ -110,7 +110,7 @@ You can also use [supervisord](http://supervisord.org/) or [monit](https://mmoni
 The script defaults to fork a background process which expose full parameters containing sensitive information e.g user/password. Example of the ps output:
 ```bash
 $ ps aux | grep mysqlchk_iptables
-root      26768  0.2  0.0 113248  1612 pts/4    S    07:08   0:01 /bin/bash /usr/local/sbin/mysqlchk_iptables --username=mysqlchk_user --password=mysqlchk_password --mirror-port=3308 --real-port=3306 --log-file=/var/log/mysqlchk_iptables --source-address=0.0.0.0/0 --check-interval=1 --defaults-extra-file=/etc/my.cnf -R
+root      26768  0.2  0.0 113248  1612 pts/4    S    07:08   0:01 /bin/bash /usr/local/sbin/mysqlchk_iptables --username=mysqlchk_user --password=mysqlchk_password --mirror-port=3308 --real-port=3306 --log-file=/var/log/mysqlchk_iptables --source-address=0.0.0.0/0 --source-address-ipv6=0::0 --check-interval=1 --defaults-extra-file=/etc/my.cnf -R
 ```
 
 If you don't want user/password values to be exposed in the command line, specify the user credentials under [client] directive inside MySQL default extra file. In the command line, pass empty values for username and password (-u and -p) and use -e to include the extra file:
@@ -140,7 +140,7 @@ By default, the script will log all activities into ``/var/log/mysqlchk_iptables
 
 To disable logging, redirect the output to ``/dev/null`` in the command line:
 ```bash
-mysqlchk_iptables -d --log-file=/dev/null 
+mysqlchk_iptables -d --log-file=/dev/null
 ```
 
 ### Tested environment
